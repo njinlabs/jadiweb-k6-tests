@@ -1,0 +1,59 @@
+name: k6
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Skrip yang dijalankan
+        type: choice
+        default: smoke
+        options: [smoke, load, stress, soak, spike]
+      mode:
+        description: MODE untuk spike (hit/miss)
+        type: choice
+        default: miss
+        options: [hit, miss]
+      rate_scale:
+        description: RATE_SCALE untuk spike (1 = penuh)
+        default: '1'
+      time_scale:
+        description: TIME_SCALE untuk spike (1 = penuh)
+        default: '1'
+      soak_duration:
+        description: SOAK_DURATION untuk soak
+        default: 1h
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: Run k6
+        run: |
+          mkdir -p results
+          k6 run \
+            -e MODE=${{ inputs.mode }} \
+            -e RATE_SCALE=${{ inputs.rate_scale }} \
+            -e TIME_SCALE=${{ inputs.time_scale }} \
+            -e SOAK_DURATION=${{ inputs.soak_duration }} \
+            ${{ inputs.script }}.js 2>&1 | tee results/run.log
+          exit ${PIPESTATUS[0]}
+      - name: Info runner
+        if: always()
+        run: |
+          {
+            echo "## k6 ${{ inputs.script }}"
+            echo "- Waktu: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "- IP publik runner: $(curl -s https://api.ipify.org)"
+            echo "- k6: $(k6 version)"
+            echo "- CPU: $(nproc) core"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-${{ inputs.script }}-${{ github.run_number }}
+          path: |
+            results/
+            summary-*.json
