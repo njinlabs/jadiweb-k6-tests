@@ -88,7 +88,10 @@ Hasil dari repositori ini adalah **ukuran kombinasi situs dan lingkungan penguji
 
 - **Satu mesin, satu IP.** Semua request berasal dari satu komputer dan satu koneksi internet. Antivirus, router, ISP, atau VPN penguji bisa membatasi koneksi. Proteksi di sisi server (rate limit, WAF) juga bisa memutus satu IP yang mengirim banyak request. Kegagalan seperti `EOF` atau `connection forcibly closed` **tidak otomatis berarti server kewalahan**. Pola server yang kewalahan biasanya berupa 5xx atau timeout.
 - **Batas penguji.** Laju 150-400 rps dari satu PC rumahan bisa menjadi bottleneck sebelum situsnya. Periksa `dropped_iterations` dan jalankan dari mesin cloud untuk beban tinggi.
-- **Cache.** Pada saat penulisan, respons halaman publik terlihat melewati Varnish dengan `X-Cache: MISS` dan `Age: 0`, jadi `cache_hit` 0% dan mode `hit` dan `miss` bisa memberi hasil mirip. Perilaku ini bisa berubah.
+- **Cache.** Situs berada di belakang Caddy dan Varnish, jadi sebagian besar respons yang terukur berasal dari cache, bukan dari aplikasi. Status cache bisa dilihat di header `X-Cache` (`HIT`/`MISS`) dan `Age`. Pada pengecekan terakhir, beranda dan artikel blog `HIT`, sedangkan `/blog` dan `/portfolio` selalu `MISS`. Karena itu:
+  - Latensi `hit` jauh lebih rendah daripada `miss`, dan hasil keduanya perlu dibaca terpisah.
+  - Metrik `cache_hit` dihitung dari request tanpa query acak. Request dengan `?cb=...` (`CACHE_BUST_PCT`) sengaja menembus cache. Pastikan Varnish memang memperlakukan query berbeda sebagai kunci berbeda, atau angkanya tidak mewakili server asal.
+  - Konfigurasi cache bisa berubah, jadi cantumkan tanggal pengujian saat melaporkan hasil.
 - **Hanya halaman publik.** Hasilnya tidak mewakili keandalan form, login, atau API.
 - **Waktu dan sampel.** Satu kali jalan tidak cukup untuk kesimpulan statistik. Ulangi beberapa kali pada jam berbeda dan catat tanggal, jam, jaringan, dan versi k6.
 
